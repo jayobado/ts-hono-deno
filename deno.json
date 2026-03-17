@@ -1,0 +1,28 @@
+{
+  "name": "@jayobado/ts-hono-deno",
+  "version": "0.1.0",
+
+  "exports": {
+    ".": "./mod.ts"
+  },
+
+  "imports": {
+    "hono":                  "https://esm.sh/hono@latest",
+    "hono/factory":          "https://esm.sh/hono@latest/factory",
+    "hono/cors":             "https://esm.sh/hono@latest/cors",
+    "hono/cookie":           "https://esm.sh/hono@latest/cookie",
+    "hono/secure-headers":   "https://esm.sh/hono@latest/secure-headers",
+    "@hono/trpc-server":     "https://esm.sh/@hono/trpc-server@latest",
+    "@trpc/server":          "https://esm.sh/@trpc/server@latest"
+  },
+
+  "tasks": {
+    "check":  "deno check mod.ts",
+    "update": "deno cache --reload --lock=deno.lock mod.ts"
+  },
+
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["ESNext", "Deno.NS"]
+  }
+}
