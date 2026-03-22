@@ -24,7 +24,6 @@ export type {
 	HonoEnv,
 	ApiOptions,
 	UiOptions,
-	BundleOptions,
 	Session,
 	SessionStore,
 	ServerResponse,

@@ -1,7 +1,8 @@
 import type { Hono, Context, MiddlewareHandler } from 'hono'
 import type { AnyRouter } from '@trpc/server'
+import type { SessionStore } from './session.ts'
 
-export type { Hono, Context, AnyRouter }
+export type { Hono, Context, AnyRouter, SessionStore }
 
 export interface Session {
 	userId: string
@@ -49,10 +50,4 @@ export interface BundleOptions {
 	importMap?: string | { imports: Record<string, string> }
 	githubToken?: string
 	onComplete?: (outFile: string, bytes: number) => void
-}
-
-export interface SessionStore {
-	get: (sid: string) => Session | undefined
-	set: (sid: string, session: Session) => void
-	delete: (sid: string) => void
 }

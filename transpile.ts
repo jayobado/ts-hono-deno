@@ -1,5 +1,6 @@
-import { transpile } from 'jsr:@deno/emit'
+import { transpile } from '@deno/emit'
 import { Log } from './logger.ts'
+import type { Context } from 'hono'
 
 export interface TranspileOptions {
 	fsRoot: string
@@ -8,15 +9,14 @@ export interface TranspileOptions {
 	compilerOptions?: Record<string, unknown>
 }
 
-// ─── Shared cache ─────────────────────────────────────────────────────────
+// ─── Shared cache ─────────────────────────────────────────────────────────────
 
 const cache = new Map<string, string>()
 
-// ─── Loader ───────────────────────────────────────────────────────────────
+// ─── Loader ───────────────────────────────────────────────────────────────────
 
 function createLoader(githubToken: string) {
 	return async (specifier: string) => {
-		// Local files
 		if (!specifier.startsWith('http')) {
 			try {
 				const path = specifier.startsWith('file://')
@@ -29,7 +29,6 @@ function createLoader(githubToken: string) {
 			}
 		}
 
-		// Private GitHub
 		if (specifier.includes('raw.githubusercontent.com') && githubToken) {
 			const res = await fetch(specifier, {
 				headers: { Authorization: `token ${githubToken}` },
@@ -43,7 +42,6 @@ function createLoader(githubToken: string) {
 			return { kind: 'module' as const, specifier, content }
 		}
 
-		// Public CDN
 		try {
 			const res = await fetch(specifier)
 			if (!res.ok) return undefined
@@ -55,7 +53,7 @@ function createLoader(githubToken: string) {
 	}
 }
 
-// ─── Transpile a single file ──────────────────────────────────────────────
+// ─── Transpile a single file ──────────────────────────────────────────────────
 
 async function transpileFile(
 	path: string,
@@ -78,12 +76,14 @@ async function transpileFile(
 		return code
 
 	} catch (err) {
-		await Log.error(`[transpile] Failed: ${path} — ${err instanceof Error ? err.message : String(err)}`)
+		await Log.error(
+			`[transpile] Failed: ${path} — ${err instanceof Error ? err.message : String(err)}`
+		)
 		return null
 	}
 }
 
-// ─── Eager warm ───────────────────────────────────────────────────────────
+// ─── Eager warm ───────────────────────────────────────────────────────────────
 
 export async function warmTranspileCache(opts: TranspileOptions): Promise<void> {
 	const githubToken = opts.githubToken ?? Deno.env.get('GITHUB_TOKEN') ?? ''
@@ -96,12 +96,10 @@ export async function warmTranspileCache(opts: TranspileOptions): Promise<void> 
 	async function walk(dir: string): Promise<void> {
 		for await (const entry of Deno.readDir(dir)) {
 			const full = `${dir}/${entry.name}`
-
 			if (entry.isDirectory) {
 				await walk(full)
 				continue
 			}
-
 			if (
 				entry.isFile && (
 					entry.name.endsWith('.ts') ||
@@ -123,7 +121,7 @@ export async function warmTranspileCache(opts: TranspileOptions): Promise<void> 
 	await Log.info(`Transpile cache warmed — ${count} files in ${elapsed}s`)
 }
 
-// ─── ETag hash ────────────────────────────────────────────────────────────
+// ─── ETag hash ────────────────────────────────────────────────────────────────
 
 function hashCode(str: string): string {
 	let hash = 0
@@ -134,13 +132,13 @@ function hashCode(str: string): string {
 	return Math.abs(hash).toString(36)
 }
 
-// ─── Request handler ──────────────────────────────────────────────────────
+// ─── Request handler ──────────────────────────────────────────────────────────
 
 export function createTranspileHandler(opts: TranspileOptions) {
 	const githubToken = opts.githubToken ?? Deno.env.get('GITHUB_TOKEN') ?? ''
 	const loader = createLoader(githubToken)
 
-	return async (c: { req: { url: string } }) => {
+	return async (c: Context): Promise<Response> => {
 		const url = new URL(c.req.url)
 		const path = url.pathname.startsWith('/pkg/')
 			? `.${url.pathname}`
@@ -165,7 +163,9 @@ export function createTranspileHandler(opts: TranspileOptions) {
 			if (err instanceof Deno.errors.NotFound) {
 				return new Response('File not found', { status: 404 })
 			}
-			await Log.error(`[transpile] ${err instanceof Error ? err.message : String(err)}`)
+			await Log.error(
+				`[transpile] ${err instanceof Error ? err.message : String(err)}`
+			)
 			return new Response('Transpilation error', { status: 500 })
 		}
 	}

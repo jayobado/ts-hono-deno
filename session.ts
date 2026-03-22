@@ -1,23 +1,45 @@
-import type { Session } from './types.ts'
 import type { Context } from 'hono'
 import { setCookie, getCookie, deleteCookie } from 'hono/cookie'
-import { SessionStore } from './types.ts'
 
+export interface SessionStore {
+	get: (sid: string) => Promise<Session | undefined>
+	set: (sid: string, session: Session) => Promise<void>
+	delete: (sid: string) => Promise<void>
+}
 
-// ─── In-memory store ──────────────────────────────────────────────────────
+export interface Session {
+	userId: string
+	email: string
+	role: string
+	[key: string]: unknown
+}
+
+// ─── In-memory store ──────────────────────────────────────────────────────────
 
 export function createMemoryStore(): SessionStore {
 	const store = new Map<string, Session>()
 	return {
-		get: sid => store.get(sid),
-		set: (sid, s) => store.set(sid, s),
-		delete: sid => store.delete(sid),
+		get: async (sid) => store.get(sid),
+		set: async (sid, session) => { store.set(sid, session) },
+		delete: async (sid) => { store.delete(sid) },
 	}
 }
 
-// ─── Deno KV store ────────────────────────────────────────────────────────
+// ─── Deno KV interface ────────────────────────────────────────────────────────
+// Typed minimally to avoid requiring --unstable-kv in the library itself.
+// Pass the result of Deno.openKv() from your application code.
 
-export function createDenoKvStore(kv: Deno.Kv, ttl?: number): SessionStore {
+interface KvEntry<T> {
+	value: T | null
+}
+
+interface DenoKv {
+	get<T>(key: unknown[]): Promise<KvEntry<T>>
+	set(key: unknown[], value: unknown, options?: { expireIn?: number }): Promise<void>
+	delete(key: unknown[]): Promise<void>
+}
+
+export function createDenoKvStore(kv: DenoKv, ttl?: number): SessionStore {
 	return {
 		get: async (sid) => {
 			const entry = await kv.get<Session>(['sessions', sid])
@@ -33,7 +55,7 @@ export function createDenoKvStore(kv: Deno.Kv, ttl?: number): SessionStore {
 	}
 }
 
-// ─── Cookie helpers ───────────────────────────────────────────────────────
+// ─── Cookie helpers ───────────────────────────────────────────────────────────
 
 export interface CookieOptions {
 	name?: string
@@ -42,12 +64,12 @@ export interface CookieOptions {
 	sameSite?: 'Strict' | 'Lax' | 'None'
 }
 
-export function setSessionCookie(
+export async function setSessionCookie(
 	c: Context,
 	session: Session,
 	store: SessionStore,
 	opts: CookieOptions = {}
-): string {
+): Promise<string> {
 	const {
 		name = 'sid',
 		maxAge = 60 * 60 * 24 * 7,
@@ -56,7 +78,7 @@ export function setSessionCookie(
 	} = opts
 
 	const sid = crypto.randomUUID()
-	store.set(sid, session)
+	await store.set(sid, session)
 
 	setCookie(c, name, sid, {
 		httpOnly: true,
@@ -69,12 +91,12 @@ export function setSessionCookie(
 	return sid
 }
 
-export function clearSessionCookie(
+export async function clearSessionCookie(
 	c: Context,
 	store: SessionStore,
 	name: string = 'sid'
-): void {
+): Promise<void> {
 	const sid = getCookie(c, name)
-	if (sid) store.delete(sid)
+	if (sid) await store.delete(sid)
 	deleteCookie(c, name, { path: '/' })
 }

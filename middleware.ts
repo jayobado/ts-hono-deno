@@ -3,19 +3,20 @@ import { secureHeaders } from 'hono/secure-headers'
 import { cors } from 'hono/cors'
 import { Log } from './logger.ts'
 import type { HonoEnv, Session } from './types.ts'
+import type { SessionStore } from './session.ts'
 
-// ─── Request ID ───────────────────────────────────────────────────────────
+// ─── Request ID ───────────────────────────────────────────────────────────────
 
 export const setRequestId = createMiddleware<HonoEnv>(async (c, next) => {
 	c.set('requestId', crypto.randomUUID())
 	await next()
 })
 
-// ─── Security headers (API) ───────────────────────────────────────────────
+// ─── Security headers (API) ───────────────────────────────────────────────────
 
 export const setSecurityHeaders = secureHeaders()
 
-// ─── Browser security headers (UI) ───────────────────────────────────────
+// ─── Browser security headers (UI) ───────────────────────────────────────────
 
 export const setBrowserSecurityHeaders = createMiddleware<HonoEnv>(async (c, next) => {
 	await next()
@@ -25,7 +26,7 @@ export const setBrowserSecurityHeaders = createMiddleware<HonoEnv>(async (c, nex
 	c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
 })
 
-// ─── Access log ───────────────────────────────────────────────────────────
+// ─── Access log ───────────────────────────────────────────────────────────────
 
 export const accessLog = createMiddleware<HonoEnv>(async (c, next) => {
 	const start = performance.now()
@@ -46,7 +47,7 @@ export const accessLog = createMiddleware<HonoEnv>(async (c, next) => {
 	}
 })
 
-// ─── Error handler ────────────────────────────────────────────────────────
+// ─── Error handler ────────────────────────────────────────────────────────────
 
 export const errorHandler = createMiddleware<HonoEnv>(async (c, next) => {
 	try {
@@ -59,7 +60,7 @@ export const errorHandler = createMiddleware<HonoEnv>(async (c, next) => {
 	}
 })
 
-// ─── CORS ─────────────────────────────────────────────────────────────────
+// ─── CORS ─────────────────────────────────────────────────────────────────────
 
 export function corsHandler(origins: string | string[]) {
 	const allowed = Array.isArray(origins) ? origins : [origins]
@@ -71,16 +72,16 @@ export function corsHandler(origins: string | string[]) {
 	})
 }
 
-// ─── Auth middleware ──────────────────────────────────────────────────────
+// ─── Auth middleware ──────────────────────────────────────────────────────────
 
 export function createAuthMiddleware(
-	sessions: Map<string, Session>,
+	sessions: SessionStore,
 	cookieName: string = 'sid'
 ) {
 	return createMiddleware<HonoEnv>(async (c, next) => {
 		const { getCookie } = await import('hono/cookie')
 		const sid = getCookie(c, cookieName)
-		const session = sid ? sessions.get(sid) : undefined
+		const session = sid ? await sessions.get(sid) : undefined
 		if (session) {
 			c.set('session', session)
 		}

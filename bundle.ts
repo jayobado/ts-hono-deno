@@ -1,6 +1,6 @@
-import { bundle } from 'jsr:@deno/emit'
+import { bundle } from '@deno/emit'
 import { Log } from './logger.ts'
-import { BundleOptions } from './types.ts'
+import type { BundleOptions } from './types.ts'
 
 
 export async function buildBundle(opts: BundleOptions): Promise<void> {

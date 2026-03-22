@@ -1,5 +1,5 @@
 {
-  "name": "@jayobado/ts-hono-deno",
+  "name": "@jayobado/ts-deno-hono",
   "version": "0.1.0",
 
   "exports": {
@@ -7,13 +7,16 @@
   },
 
   "imports": {
-    "hono":                  "https://esm.sh/hono@latest",
-    "hono/factory":          "https://esm.sh/hono@latest/factory",
-    "hono/cors":             "https://esm.sh/hono@latest/cors",
-    "hono/cookie":           "https://esm.sh/hono@latest/cookie",
-    "hono/secure-headers":   "https://esm.sh/hono@latest/secure-headers",
-    "@hono/trpc-server":     "https://esm.sh/@hono/trpc-server@latest",
-    "@trpc/server":          "https://esm.sh/@trpc/server@latest"
+    "hono":                "https://esm.sh/hono@4.12.8",
+    "hono/factory":        "https://esm.sh/hono@4.12.8/factory",
+    "hono/cors":           "https://esm.sh/hono@4.12.8/cors",
+    "hono/cookie":         "https://esm.sh/hono@4.12.8/cookie",
+    "hono/secure-headers": "https://esm.sh/hono@4.12.8/secure-headers",
+    "hono/route":          "https://esm.sh/hono@4.12.8/route",
+    "@hono/trpc-server":   "https://esm.sh/@hono/trpc-server@0.4.2?external=hono",
+    "@trpc/server":        "https://esm.sh/@trpc/server@latest",
+    "@std/http":           "jsr:@std/http@^1.0.0",
+    "@deno/emit":          "jsr:@deno/emit@^0.46.0"
   },
 
   "tasks": {
@@ -23,6 +26,6 @@
 
   "compilerOptions": {
     "strict": true,
-    "lib": ["ESNext", "Deno.NS"]
+    "lib": ["ESNext", "DOM", "Deno.NS"]
   }
 }

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { trpcServer } from '@hono/trpc-server'
-import { serveDir, serveFile } from 'jsr:@std/http/file-server'
+import { serveDir, serveFile } from '@std/http/file-server'
 import {
 	setRequestId,
 	setSecurityHeaders,
@@ -22,8 +22,9 @@ import type {
 	ServerResponse,
 	Session,
 } from './types.ts'
+import type { SessionStore } from './session.ts'
 
-// ─── run ──────────────────────────────────────────────────────────────────
+// ─── run ──────────────────────────────────────────────────────────────────────
 
 function run(
 	app: Hono<HonoEnv>,
@@ -39,9 +40,12 @@ function run(
 	}, app.fetch)
 }
 
-// ─── api() ────────────────────────────────────────────────────────────────
+// ─── api() ────────────────────────────────────────────────────────────────────
 
-export function api(opts: ApiOptions): void {
+export function api(
+	opts: ApiOptions,
+	sessions: SessionStore
+): void {
 	const app = new Hono<HonoEnv>()
 
 	app.use('*', setRequestId)
@@ -51,13 +55,13 @@ export function api(opts: ApiOptions): void {
 	app.use('*', corsHandler(opts.origins))
 
 	if (opts.trpc) {
-		const sessions = new Map<string, Session>()
 		const authMiddleware = createAuthMiddleware(sessions)
-
-		app.use('/api/*', authMiddleware)
+		app.use('/api/*', authMiddleware as unknown as Parameters<typeof app.use>[1])
 
 		if (opts.middleware?.length) {
-			opts.middleware.forEach(m => app.use('/api/*', m))
+			opts.middleware.forEach(m =>
+				app.use('/api/*', m as unknown as Parameters<typeof app.use>[1])
+			)
 		}
 
 		app.use('/api/*', trpcServer({
@@ -66,7 +70,7 @@ export function api(opts: ApiOptions): void {
 			createContext: (_opts, ctx) => ({
 				session: ctx.get('session') as Session | undefined,
 			}),
-		}))
+		}) as unknown as Parameters<typeof app.use>[1])
 	}
 
 	if (opts.routes) opts.routes(app)
@@ -84,7 +88,7 @@ export function api(opts: ApiOptions): void {
 	return run(app, { host: opts.host, port: opts.port })
 }
 
-// ─── ui() ─────────────────────────────────────────────────────────────────
+// ─── ui() ─────────────────────────────────────────────────────────────────────
 
 export async function ui(opts: UiOptions): Promise<void> {
 	const {
@@ -100,19 +104,13 @@ export async function ui(opts: UiOptions): Promise<void> {
 
 	const app = new Hono<HonoEnv>()
 
-	// ── Middleware ────────────────────────────────────────────────────────────
-
 	app.use('*', setRequestId)
 	app.use('*', setSecurityHeaders)
 	app.use('*', setBrowserSecurityHeaders)
 	app.use('*', errorHandler)
 	app.use('*', accessLog)
 
-	// ── Project routes ────────────────────────────────────────────────────────
-
 	if (routes) routes(app)
-
-	// ── Eager warm ────────────────────────────────────────────────────────────
 
 	if (strategy === 'eager') {
 		await warmTranspileCache({
@@ -123,8 +121,6 @@ export async function ui(opts: UiOptions): Promise<void> {
 		})
 	}
 
-	// ── TypeScript transpilation ──────────────────────────────────────────────
-
 	const handleTranspile = createTranspileHandler({
 		fsRoot,
 		importMap,
@@ -132,13 +128,11 @@ export async function ui(opts: UiOptions): Promise<void> {
 		compilerOptions,
 	})
 
-	app.get('*.ts', handleTranspile)
-	app.get('*.tsx', handleTranspile)
+	app.get('*.ts', (ctx) => handleTranspile(ctx))
+	app.get('*.tsx', (ctx) => handleTranspile(ctx))
 
-	// ── Static files + SPA catch-all ─────────────────────────────────────────
-
-	app.get('*', async (c) => {
-		const response = await serveDir(c.req.raw, {
+	app.get('*', async (ctx) => {
+		const response = await serveDir(ctx.req.raw, {
 			fsRoot,
 			urlRoot: '',
 			quiet: true,
@@ -146,9 +140,9 @@ export async function ui(opts: UiOptions): Promise<void> {
 
 		if (
 			response.status === 404 &&
-			!c.req.url.split('/').pop()?.includes('.')
+			!ctx.req.url.split('/').pop()?.includes('.')
 		) {
-			return serveFile(c.req.raw, `${fsRoot}/index.html`)
+			return serveFile(ctx.req.raw, `${fsRoot}/index.html`)
 		}
 
 		return response
