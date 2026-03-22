@@ -1,6 +1,5 @@
 import { transpile } from '@deno/emit'
 import { Log } from './logger.ts'
-import type { Context } from 'hono'
 
 export interface TranspileOptions {
 	fsRoot: string
@@ -134,11 +133,13 @@ function hashCode(str: string): string {
 
 // ─── Request handler ──────────────────────────────────────────────────────────
 
-export function createTranspileHandler(opts: TranspileOptions) {
+export function createTranspileHandler(
+	opts: TranspileOptions
+): (c: { req: { url: string } }) => Promise<Response> {
 	const githubToken = opts.githubToken ?? Deno.env.get('GITHUB_TOKEN') ?? ''
 	const loader = createLoader(githubToken)
 
-	return async (c: Context): Promise<Response> => {
+	return async (c: { req: { url: string } }): Promise<Response> => {
 		const url = new URL(c.req.url)
 		const path = url.pathname.startsWith('/pkg/')
 			? `.${url.pathname}`

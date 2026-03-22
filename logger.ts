@@ -33,9 +33,14 @@ async function generate(level: Level, content: string): Promise<void> {
 	await write(filename, content)
 }
 
-export const Log = {
-	debug: (content: string) => generate('debug', content),
-	info: (content: string) => generate('info', content),
-	warn: (content: string) => generate('warn', content),
-	error: (content: string) => generate('error', content),
+export const Log: {
+	debug: (content: string) => Promise<void>
+	info: (content: string) => Promise<void>
+	warn: (content: string) => Promise<void>
+	error: (content: string) => Promise<void>
+} = {
+	debug: (content: string): Promise<void> => generate('debug', content),
+	info: (content: string): Promise<void> => generate('info', content),
+	warn: (content: string): Promise<void> => generate('warn', content),
+	error: (content: string): Promise<void> => generate('error', content),
 }
