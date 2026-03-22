@@ -1,8 +1,9 @@
 import { createMiddleware } from 'hono/factory'
 import { secureHeaders } from 'hono/secure-headers'
 import { cors } from 'hono/cors'
+import { getCookie } from 'hono/cookie'
 import { Log } from './logger.ts'
-import type { HonoEnv, Session } from './types.ts'
+import type { HonoEnv } from './types.ts'
 import type { SessionStore } from './session.ts'
 
 // ─── Request ID ───────────────────────────────────────────────────────────────
@@ -79,7 +80,6 @@ export function createAuthMiddleware(
 	cookieName: string = 'sid'
 ) {
 	return createMiddleware<HonoEnv>(async (c, next) => {
-		const { getCookie } = await import('hono/cookie')
 		const sid = getCookie(c, cookieName)
 		const session = sid ? await sessions.get(sid) : undefined
 		if (session) {
