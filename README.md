@@ -14,7 +14,7 @@ A Hono server factory for TypeScript SPA applications running on Deno. Handles s
 ## Requirements
 
 - Deno 1.40+
-- Hono 4.6+
+- Hono 4.12+
 
 ## Compatibility
 
@@ -26,14 +26,28 @@ A Hono server factory for TypeScript SPA applications running on Deno. Handles s
 | `Deno.readTextFile` | Reading source files for transpilation |
 | `Deno.readDir` | Walking file tree for eager cache warm |
 | `Deno.mkdir` / `Deno.writeTextFile` | Writing log files and build output |
-| `jsr:@deno/emit` | TypeScript transpilation |
-| `jsr:@std/http/file-server` | Static file serving |
+| `@deno/emit` | TypeScript transpilation |
+| `@std/http/file-server` | Static file serving |
 
-For Node or Bun, use a different server layer (Fastify, Express, Elysia etc.) and a bundler (Vite, esbuild) for TypeScript transpilation.
+For Node or Bun use a different server layer (Fastify, Express, Elysia etc.) and a bundler (Vite, esbuild) for TypeScript transpilation.
 
 ## Installation
 
-Add to your project's `deno.json`:
+### Deno (JSR — recommended)
+```sh
+deno add jsr:@jayobado/ts-deno-hono
+```
+
+Or add manually to `deno.json`:
+```json
+{
+  "imports": {
+    "@ts-deno-hono": "jsr:@jayobado/ts-deno-hono@^0.1.0"
+  }
+}
+```
+
+### Deno (GitHub — for local development or forks)
 ```json
 {
   "imports": {
@@ -41,8 +55,6 @@ Add to your project's `deno.json`:
   }
 }
 ```
-
-Set your GitHub token for private repo access:
 ```bash
 export DENO_AUTH_TOKENS="ghp_yourtoken@raw.githubusercontent.com"
 ```
@@ -79,12 +91,12 @@ await ui({
         return c.json({ message: 'Invalid credentials', code: 401 }, 401)
       }
       const session = { userId: '1', email, role: 'admin' }
-      setSessionCookie(c, session, sessions, { secure: !isDev })
+      await setSessionCookie(c, session, sessions, { secure: !isDev })
       return c.json({ ok: true, user: session })
     })
 
-    app.post('/auth/logout', (c) => {
-      clearSessionCookie(c, sessions)
+    app.post('/auth/logout', async (c) => {
+      await clearSessionCookie(c, sessions)
       return c.json({ ok: true })
     })
 
@@ -111,6 +123,8 @@ await ui({
 deno task dev
 ```
 
+---
+
 ## `ui()`
 
 Serves a TypeScript SPA from `fsRoot`. Intercepts `.ts` and `.tsx` requests and transpiles them. Falls back to `index.html` for SPA client-side routes.
@@ -123,7 +137,7 @@ await ui({
   fsRoot:  './public',
 
   // Path to deno.json or inline object
-  // Required when using import map aliases (@ts-ui-tools, @myapp etc.)
+  // Required when using import map aliases (@ts-ui, @myapp etc.)
   importMap: './deno.json',
 
   // GitHub token for private repo imports
@@ -136,7 +150,7 @@ await ui({
 
   // Compiler options forwarded to the TypeScript transpiler
   // Only needed for JSX frameworks (React, Solid, Preact)
-  // Not needed for ts-ui-tools, vue-ui-tools, or plain TypeScript
+  // Not needed for ts-ui, vue-ui, or plain TypeScript
   compilerOptions: {
     jsx:             'react-jsx',
     jsxImportSource: 'react',
@@ -155,7 +169,7 @@ await ui({
 
 **Lazy — development**
 
-Transpiles on the first request for each file, then caches the result in memory. Subsequent requests return from cache instantly. Import map aliases and private GitHub repos are resolved server-side — the browser never needs auth tokens.
+Transpiles on the first request for each file then caches the result in memory. Subsequent requests return from cache instantly. Import map aliases and private GitHub repos are resolved server-side — the browser never needs auth tokens.
 
 **Eager — production**
 
@@ -170,20 +184,20 @@ deno task start
 
 ### Serving private dependencies
 
-When your code imports from a private GitHub repo (`@ts-ui-tools`, `@vue-ui-tools` etc.), `ui()` fetches those files server-side using your `GITHUB_TOKEN`. The browser never makes requests to GitHub directly.
+When your code imports from a private GitHub repo (`@ts-ui`, `@vue-ui` etc.), `ui()` fetches those files server-side using your `GITHUB_TOKEN`. The browser never makes requests to GitHub directly.
 ```bash
-# Set in your environment
 export GITHUB_TOKEN="ghp_yourtoken"
-
-# Or pass directly
-await ui({ githubToken: 'ghp_yourtoken', ... })
 ```
+
+---
 
 ## `api()`
 
 Standalone API server. Use when your backend is a separate service from the UI — consumed by multiple clients, deployed independently, or on a different port.
 ```typescript
-import { api } from '@ts-deno-hono'
+import { api, createMemoryStore } from '@ts-deno-hono'
+
+const sessions = createMemoryStore()
 
 api({
   host:    'localhost',
@@ -198,10 +212,12 @@ api({
   routes: (app) => {
     app.post('/webhooks/stripe', handleStripe)
   },
-})
+}, sessions)
 ```
 
-> For a single Deno process serving both UI and API, use `ui()` with a `routes` callback instead. `api()` is for separate deployments.
+> For a single Deno process serving both UI and API use `ui()` with a `routes` callback instead. `api()` is for separate deployments.
+
+---
 
 ## Logging
 
@@ -224,6 +240,8 @@ logs/
 └── error_20250117.log
 ```
 
+---
+
 ## Session management
 ```typescript
 import {
@@ -241,7 +259,7 @@ const kv       = await Deno.openKv()
 const sessions = createDenoKvStore(kv, 60 * 60 * 8) // 8h TTL
 
 // Set cookie on login
-setSessionCookie(c, session, sessions, {
+await setSessionCookie(c, session, sessions, {
   name:     'sid',        // default
   maxAge:   60 * 60 * 8, // 8 hours in seconds
   secure:   true,         // true in production (requires HTTPS)
@@ -249,8 +267,8 @@ setSessionCookie(c, session, sessions, {
 })
 
 // Clear cookie on logout
-clearSessionCookie(c, sessions)
-clearSessionCookie(c, sessions, 'my-custom-sid')
+await clearSessionCookie(c, sessions)
+await clearSessionCookie(c, sessions, 'my-custom-sid')
 ```
 
 ### Session type
@@ -263,6 +281,8 @@ interface Session {
 }
 ```
 
+---
+
 ## Middleware
 
 All middleware is exported individually for custom Hono app composition:
@@ -271,7 +291,7 @@ import {
   setRequestId,              // crypto.randomUUID() per request → ctx variable
   setSecurityHeaders,        // API-oriented security headers
   setBrowserSecurityHeaders, // X-Frame-Options, CSP, Referrer-Policy etc.
-  accessLog,                 // method, path, status, duration via Log.info/warn/error
+  accessLog,                 // method, path, status, duration via Log
   errorHandler,              // catches unhandled errors, logs, returns 500
   corsHandler,               // configures CORS for given origins
   createAuthMiddleware,      // reads session cookie, sets ctx session variable
@@ -285,12 +305,12 @@ import { createAuthMiddleware, createMemoryStore } from '@ts-deno-hono'
 const sessions = createMemoryStore()
 
 // Reads 'sid' cookie, looks up session, sets ctx.get('session')
-const authMiddleware = createAuthMiddleware(sessions)
+const auth = createAuthMiddleware(sessions)
 
 // Custom cookie name
-const authMiddleware = createAuthMiddleware(sessions, 'my-session-id')
+const auth = createAuthMiddleware(sessions, 'my-session-id')
 
-app.use('/api/*', authMiddleware)
+app.use('/api/*', auth)
 app.use('/api/*', trpcServer({
   router:        appRouter,
   createContext: (_opts, ctx) => ({
@@ -298,6 +318,8 @@ app.use('/api/*', trpcServer({
   }),
 }))
 ```
+
+---
 
 ## Building for non-Deno targets
 
@@ -350,10 +372,9 @@ pages_build_output_dir = "dist"
 command = "deno task build"
 ```
 
-Environment variable in Cloudflare dashboard:
-```
-GITHUB_TOKEN = ghp_yourtoken
-```
+Set `GITHUB_TOKEN` as an environment variable in the Cloudflare dashboard if your app imports from private repos.
+
+---
 
 ## Compatible UI frameworks
 
@@ -361,68 +382,50 @@ GITHUB_TOKEN = ghp_yourtoken
 
 | Framework | `compilerOptions` needed | Notes |
 |---|---|---|
-| ts-ui-tools | No | Plain TypeScript, no JSX |
-| vue-ui-tools | No | Plain TypeScript, no JSX |
+| ts-ui | No | Plain TypeScript, no JSX |
+| vue-ui | No | Plain TypeScript, no JSX |
 | Vue (h() only) | No | Plain TypeScript, no JSX |
 | React | Yes | `jsx: 'react-jsx'`, `jsxImportSource: 'react'` |
 | Solid | Yes | `jsx: 'react-jsx'`, `jsxImportSource: 'solid-js/h'` |
 | Preact | Yes | `jsx: 'react-jsx'`, `jsxImportSource: 'preact'` |
 
+---
+
 ## Updating dependencies
 
-`ts-deno-hono` uses `@latest` for its dependencies pinned by `deno.lock`:
+`ts-deno-hono` pins its dependencies explicitly. To pull in new versions:
 ```bash
-cd ts-deno-hono
-
-# Re-resolve @latest and update deno.lock
-deno task update
-
-# Verify types still pass
-deno task check
-
-# Tag and push
+deno task update    # re-resolves, updates deno.lock
+deno task check     # verify types still pass
 git add deno.lock
 git commit -m "update dependencies"
 git tag v0.2.0
 git push origin main --tags
+deno publish        # publish new version to JSR
 ```
 
-Then bump your project:
-```bash
-deno run --allow-read --allow-write scripts/bump.ts v0.2.0
-```
+---
 
 ## Project structure
 ```
-my-app/
-├── server.ts            # ~50 lines — ui() + auth + tRPC
-├── index.html
-├── deno.json
-├── scripts/
-│   ├── bump.ts          # upgrade @ts-deno-hono version
-│   └── build.ts         # pre-bundle for non-Deno targets
-└── public/
-    ├── main.ts
-    ├── tokens.ts
-    ├── services/
-    │   └── app.ts
-    └── views/
-        └── ...
+ts-deno-hono/
+├── mod.ts           # barrel export
+├── types.ts         # interfaces — HonoEnv, Config types, Session
+├── logger.ts        # Log — file-based structured logger
+├── middleware.ts     # setRequestId, accessLog, errorHandler, corsHandler, createAuthMiddleware
+├── session.ts       # createMemoryStore, createDenoKvStore, setSessionCookie, clearSessionCookie
+├── transpile.ts     # createTranspileHandler, warmTranspileCache
+├── bundle.ts        # buildBundle
+└── factory.ts       # ui(), api()
 ```
 
 ## Related packages
 
 | Package | Description |
 |---|---|
-| [ts-ui-tools](https://github.com/jayobado/ts-ui-tools) | Full-stack SPA framework — signals, DOM, CSS, router, services |
+| [ts-ui-tools](https://github.com/jayobado/ts-ui-tools) | Full-stack SPA toolkit — signals, DOM, CSS, router, services |
 | [vue-ui-tools](https://github.com/jayobado/vue-ui-tools) | Vue 3 runtime — typed element factories, CSS engine, components |
-
-## Versioning
-```bash
-# Bump ts-deno-hono in your project
-deno run --allow-read --allow-write scripts/bump.ts v0.2.0
-```
 
 ## License
 
-MIT
+Copyright (C) 2026 Jeremy Obado. All rights reserved.
