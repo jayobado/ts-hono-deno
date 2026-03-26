@@ -1,4 +1,4 @@
-# ts-deno-hono
+# hono-dn
 
 A Hono server factory for TypeScript SPA applications running on Deno. Handles static file serving, on-the-fly TypeScript transpilation, session management, logging, and optional tRPC integration — so your `server.ts` stays under 50 lines.
 
@@ -18,7 +18,7 @@ A Hono server factory for TypeScript SPA applications running on Deno. Handles s
 
 ## Compatibility
 
-`ts-deno-hono` is **Deno only**. It uses Deno-specific APIs that are not available in Node or Bun:
+`hono-dn` is **Deno only**. It uses Deno-specific APIs that are not available in Node or Bun:
 
 | API | Used for |
 |---|---|
@@ -35,14 +35,14 @@ For Node or Bun use a different server layer (Fastify, Express, Elysia etc.) and
 
 ### Deno (JSR — recommended)
 ```sh
-deno add jsr:@jayobado/ts-deno-hono
+deno add jsr:@jayobado/hono-dn
 ```
 
 Or add manually to `deno.json`:
 ```json
 {
   "imports": {
-    "@ts-deno-hono": "jsr:@jayobado/ts-deno-hono@^0.1.0"
+    "@hono-dn": "jsr:@jayobado/hono-dn@^0.1.0"
   }
 }
 ```
@@ -51,7 +51,7 @@ Or add manually to `deno.json`:
 ```json
 {
   "imports": {
-    "@ts-deno-hono": "https://raw.githubusercontent.com/jayobado/ts-deno-hono/v0.1.0/mod.ts"
+    "@hono-dn": "https://raw.githubusercontent.com/jayobado/hono-dn/v0.1.0/mod.ts"
   }
 }
 ```
@@ -68,7 +68,7 @@ import {
   setSessionCookie,
   clearSessionCookie,
   createAuthMiddleware,
-} from '@ts-deno-hono'
+} from '@hono-dn'
 import { trpcServer } from '@hono/trpc-server'
 import { appRouter }  from './src/trpc/router.ts'
 
@@ -195,7 +195,7 @@ export GITHUB_TOKEN="ghp_yourtoken"
 
 Standalone API server. Use when your backend is a separate service from the UI — consumed by multiple clients, deployed independently, or on a different port.
 ```typescript
-import { api, createMemoryStore } from '@ts-deno-hono'
+import { api, createMemoryStore } from '@hono-dn'
 
 const sessions = createMemoryStore()
 
@@ -223,7 +223,7 @@ api({
 
 `Log` writes to `./logs/{level}_{YYYYMMDD}.log` and stdout/stderr simultaneously. A new file is created per level per day automatically.
 ```typescript
-import { Log } from '@ts-deno-hono'
+import { Log } from '@hono-dn'
 
 await Log.debug('Cache warmed — 6 files in 2.1s')
 await Log.info('Server running at http://localhost:3000')
@@ -249,7 +249,7 @@ import {
   createDenoKvStore,
   setSessionCookie,
   clearSessionCookie,
-} from '@ts-deno-hono'
+} from '@hono-dn'
 
 // In-memory — fast, lost on restart
 const sessions = createMemoryStore()
@@ -295,12 +295,12 @@ import {
   errorHandler,              // catches unhandled errors, logs, returns 500
   corsHandler,               // configures CORS for given origins
   createAuthMiddleware,      // reads session cookie, sets ctx session variable
-} from '@ts-deno-hono'
+} from '@hono-dn'
 ```
 
 ### Auth middleware
 ```typescript
-import { createAuthMiddleware, createMemoryStore } from '@ts-deno-hono'
+import { createAuthMiddleware, createMemoryStore } from '@hono-dn'
 
 const sessions = createMemoryStore()
 
@@ -326,7 +326,7 @@ app.use('/api/*', trpcServer({
 When deploying to Cloudflare Pages, Netlify, Vercel, AWS S3, or any static host, pre-bundle your SPA into `./dist`:
 ```typescript
 // scripts/build.ts
-import { buildBundle } from '@ts-deno-hono'
+import { buildBundle } from '@hono-dn'
 
 await buildBundle({
   entry:     './public/main.ts',
@@ -393,7 +393,7 @@ Set `GITHUB_TOKEN` as an environment variable in the Cloudflare dashboard if you
 
 ## Updating dependencies
 
-`ts-deno-hono` pins its dependencies explicitly. To pull in new versions:
+`hono-dn` pins its dependencies explicitly. To pull in new versions:
 ```bash
 deno task update    # re-resolves, updates deno.lock
 deno task check     # verify types still pass
@@ -408,7 +408,7 @@ deno publish        # publish new version to JSR
 
 ## Project structure
 ```
-ts-deno-hono/
+hono-dn/
 ├── mod.ts           # barrel export
 ├── types.ts         # interfaces — HonoEnv, Config types, Session
 ├── logger.ts        # Log — file-based structured logger
